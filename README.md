@@ -28,7 +28,6 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 | `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS |
 
 如何使用：
-- 然后如何调用:
   直接本地访问localhost:9000 ，则可访问到 example.com记录的ip:端口所代理的服务
 
 ---
