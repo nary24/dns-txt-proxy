@@ -19,7 +19,6 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 参数说明：
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-|------|------|--------|
 | `--domain` | 要解析的域名（TXT 记录应为 `IP:端口` 格式） | 必填 |
 | `--local-port` | 本地监听端口 | 必填 |
 | `--protocol` | 协议类型（`tcp` 或 `udp`） | `tcp` |
