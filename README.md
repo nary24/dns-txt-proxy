@@ -55,11 +55,11 @@ dns_servers = 1.1.1.1 1.0.0.1
 ```
 启动：
 ```bash
-python domain_txtforward.py
+python dns-txt-proxy.py
 ```
 或指定配置文件路径：
 ```bash
-python domain_txtforward.py --config /path/to/config.conf
+python dns-txt-proxy.py --config /path/to/config.conf
 ```
 
 ---
