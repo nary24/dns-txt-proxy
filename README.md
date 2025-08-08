@@ -1,11 +1,11 @@
 # 动态域名代理程序 (dns-txt-proxy.py)
 
 ## 📌 简介
-`dns-txt-proxy.py` 是一个 **动态代理程序**，可通过解析 **DNS TXT 记录** 获取目标服务器的 **IP:端口** 并自动更新，实现 TCP/UDP 端口转发。
+`dns-txt-proxy.py` 是一个 **动态代理程序**，可通过解析 **DNS TXT 记录** 获取目标服务器的 **动态IP:动态端口** 并自动更新，实现 TCP/UDP 端口转发, 变向实现固定IP:端口的目的。
 - 用于没有固定公网IPV4的环境，也可用于没有公网IP但可通过lucky内网穿透的公网IP
 - 支持 **多实例配置文件模式** 和 **命令行单实例模式**
 - 支持 DNS 记录变化自动切换目标
-- 适合用于 NAT 穿透、动态端口代理等场景
+- 适合用于 NAT 穿透、动态端口代理等场景 ，如wireguard连接服务端的端口 变向固定
 
 ---
 
@@ -30,6 +30,9 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 | `--stability` | 稳定性判断次数（连续相同解析结果的次数才更新） | `3` 
 
 | `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS 
+
+- 然后如何调用:
+  直接本地访问localhost:9000 ，则可访问到 example.com记录的ip:端口所代理的服务
 
 ---
 
