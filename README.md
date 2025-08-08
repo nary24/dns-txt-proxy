@@ -19,18 +19,19 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 参数说明：
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--domain` | 要解析的域名（TXT 记录应为 `IP:端口` 格式） | 必填 
+| `--domain` | 要解析的域名（TXT 记录应为 `IP:端口` 格式） | 必填 |
 
-| `--local-port` | 本地监听端口 | 必填 
+| `--local-port` | 本地监听端口 | 必填 |
 
-| `--protocol` | 协议类型（`tcp` 或 `udp`） | `tcp` 
+| `--protocol` | 协议类型（`tcp` 或 `udp`） | `tcp` |
 
-| `--interval` | 检查 TXT 记录的间隔（秒） | `10` 
+| `--interval` | 检查 TXT 记录的间隔（秒） | `10` |
 
-| `--stability` | 稳定性判断次数（连续相同解析结果的次数才更新） | `3` 
+| `--stability` | 稳定性判断次数（连续相同解析结果的次数才更新） | `3` |
 
-| `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS 
+| `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS |
 
+如何使用：
 - 然后如何调用:
   直接本地访问localhost:9000 ，则可访问到 example.com记录的ip:端口所代理的服务
 
