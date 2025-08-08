@@ -6,12 +6,15 @@
 - 支持 **多实例配置文件模式** 和 **命令行单实例模式**
 - 支持 DNS 记录变化自动切换目标
 - 适合用于 NAT 穿透、动态端口代理等场景 ，如wireguard连接服务端的端口 变向固定
-
 ---
 
 ## 🚀 使用方式
 
 ### 1. 命令行单实例模式
+python版本：3
+
+安装依赖： pip install -r requirements.txt
+
 直接指定域名和本地监听端口：
 ```bash
 python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --interval 5 --stability 1 --dns-servers 8.8.8.8 8.8.4.4
@@ -107,3 +110,4 @@ Ctrl + C
 - 无公网时，使用lucky的stun内网穿透、动态域名 代理wireguard服务端，再用此程序 实现在windows上固定端口连接wireguard服务端
 - 同上也可代理web服务
 - 修改一下脚本，用于openwrt中连接wireguard服务端等
+- pip安装pyinstaller，可把py脚本打包成exe可执行文件
