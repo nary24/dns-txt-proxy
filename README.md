@@ -28,6 +28,7 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 | `--interval` | 检查 TXT 记录的间隔（秒） | `10` |
 | `--stability` | 稳定性判断次数（连续相同解析结果的次数才更新） | `3` |
 | `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS |
+| `--log-file` | 指定生成日志文件到此位置 | 非必填 |
 
 如何使用：
   直接本地访问localhost:9000 ，则可访问到 example.com记录的ip:端口所代理的服务
@@ -39,6 +40,10 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 
 配置文件示例：
 ```ini
+[global]
+# 日志文件路径（可选，留空则只输出到终端）
+#log_file = d:\dns-txt-proxy.log
+
 [proxy1]
 domain = txt1.example.com
 local_port = 9001

@@ -10,6 +10,7 @@ import select
 import os
 from collections import deque
 import logging
+from logging.handlers import TimedRotatingFileHandler
 from typing import Optional, Tuple, List, Dict
 import configparser
 import sys
@@ -17,12 +18,32 @@ import sys
 SocketAddress = Tuple[str, int]
 UDPClientMap = Dict[SocketAddress, float]
 
-def get_log_path(log_file: Optional[str]) -> str:
+def get_log_path(log_file: Optional[str]) -> Optional[str]:
     """获取日志文件路径"""
     if log_file:
         return log_file
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "dns-txt-proxy.log")
+    return None  # 不指定则返回 None，表示不写文件
+
+def setup_logging(log_path: Optional[str]):
+    """统一初始化日志，支持按天分割，不指定路径则只输出到终端"""
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    handlers = [logging.StreamHandler()]
+    if log_path:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        file_handler = TimedRotatingFileHandler(
+            log_path, when="midnight", interval=1, backupCount=7, encoding="utf-8"
+        )
+        file_handler.suffix = "%Y-%m-%d"
+        handlers.append(file_handler)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(asctime)s] %(levelname)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=handlers
+    )
 
 class SectionLoggerAdapter(logging.LoggerAdapter):
     """给日志加 [section] 前缀"""
@@ -282,11 +303,21 @@ class DynamicProxy:
                 except:
                     pass
 
+
 def load_config_and_start(config_file: str):
     config = configparser.ConfigParser()
     config.read(config_file, encoding="utf-8")
+
+    log_file = None
+    if config.has_section("global") and config.has_option("global", "log_file"):
+        log_file = config.get("global", "log_file").strip()
+    log_path = get_log_path(log_file)
+    setup_logging(log_path)
+
     proxies = []
     for section in config.sections():
+        if section == "global":
+            continue
         domain = config.get(section, "domain")
         local_port = config.getint(section, "local_port")
         protocol = config.get(section, "protocol", fallback="tcp")
@@ -327,16 +358,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    log_path = get_log_path(args.log_file)
-    log_handlers = [logging.StreamHandler(), logging.FileHandler(log_path, encoding="utf-8")]
-    logging.basicConfig(
-        level=logging.INFO,
-        format='[%(asctime)s] %(levelname)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=log_handlers
-    )
-
     if args.domain and args.local_port:
+        log_path = get_log_path(args.log_file)
+        setup_logging(log_path)
         proxy = DynamicProxy(
             domain=args.domain,
             local_port=args.local_port,
