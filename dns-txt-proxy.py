@@ -17,17 +17,25 @@ import sys
 SocketAddress = Tuple[str, int]
 UDPClientMap = Dict[SocketAddress, float]
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+def get_log_path(log_file: Optional[str]) -> str:
+    """获取日志文件路径"""
+    if log_file:
+        return log_file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, "dns-txt-proxy.log")
+
+class SectionLoggerAdapter(logging.LoggerAdapter):
+    """给日志加 [section] 前缀"""
+    def process(self, msg, kwargs):
+        return f"[{self.extra['section']}] {msg}", kwargs
 
 class DynamicProxy:
     def __init__(self, domain: str, local_port: int, protocol: str = 'tcp',
                  check_interval: int = 10, udp_buffer_size: int = 4096,
                  dns_timeout: int = 5, stability_threshold: int = 3,
-                 dns_servers: Optional[List[str]] = None):
+                 dns_servers: Optional[List[str]] = None,
+                 logger: Optional[logging.Logger] = None,
+                 section: str = "main"):
         self.domain = domain
         self.local_port = local_port
         self.protocol = protocol.lower()
@@ -41,6 +49,8 @@ class DynamicProxy:
         self.udp_target_socket: Optional[socket.socket] = None
         self.dns_timeout = dns_timeout
         self.stability_threshold = max(1, stability_threshold)
+        self.logger = logger or logging.getLogger(__name__)
+        self.section = section
 
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = self.dns_timeout
@@ -54,7 +64,7 @@ class DynamicProxy:
             maxlen=self.stability_threshold
         )
         try:
-            self.resolver.cache = None  # type: ignore
+            self.resolver.cache = None
         except AttributeError:
             pass
 
@@ -67,21 +77,21 @@ class DynamicProxy:
                     ip, port_str = txt_data.split(':', 1)
                     if ip and port_str.isdigit():
                         return (ip, int(port_str))
-            logging.warning(f"域名 {self.domain} 的TXT记录格式不正确")
+            self.logger.warning(f"{self.domain} TXT记录格式不正确")
             return None
         except dns.resolver.NXDOMAIN:
-            logging.warning(f"域名 {self.domain} 不存在")
+            self.logger.warning(f"{self.domain} 域名不存在")
             return None
         except dns.resolver.Timeout:
-            logging.warning(f"解析域名 {self.domain} 超时")
+            self.logger.warning(f"{self.domain} 解析超时")
             return None
         except Exception as e:
-            logging.warning(f"TXT记录解析失败: {str(e)}")
+            self.logger.warning(f"{self.domain} TXT记录解析失败: {str(e)}")
             return None
 
     def check_update(self, is_initial_check: bool = False) -> None:
         if is_initial_check:
-            logging.info(f"启动时检查 {self.domain} 的TXT记录...")
+            self.logger.info(f"启动时检查 {self.domain} TXT记录...")
         new_target = self.resolve_txt()
 
         if new_target:
@@ -95,8 +105,6 @@ class DynamicProxy:
             if len(self.recent_resolutions) == self.stability_threshold:
                 if all(addr == new_target for addr in self.recent_resolutions):
                     self._update_target_if_needed(new_target)
-                else:
-                    logging.debug(f"解析结果不稳定: {list(self.recent_resolutions)}")
         else:
             self.recent_resolutions.clear()
 
@@ -105,9 +113,9 @@ class DynamicProxy:
             old_target = self.target
             self.target = new_target
             if is_initial_check:
-                logging.info(f"初始目标: {self.target[0]}:{self.target[1]}")
+                self.logger.info(f"{self.domain} 初始目标: {self.target[0]}:{self.target[1]}")
             else:
-                logging.info(f"目标更新: {old_target} -> {self.target[0]}:{self.target[1]}")
+                self.logger.info(f"{self.domain} 目标更新: {old_target} -> {self.target[0]}:{self.target[1]}")
             self._recreate_udp_socket()
 
     def _recreate_udp_socket(self) -> None:
@@ -118,7 +126,7 @@ class DynamicProxy:
                 pass
             time.sleep(0.1)
             self.udp_target_socket = self.create_udp_socket()
-            logging.info("已重建UDP目标socket")
+            self.logger.info("已重建UDP目标socket")
 
     def create_udp_socket(self) -> socket.socket:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -152,7 +160,7 @@ class DynamicProxy:
                     other_sock = target_socket if sock is client_socket else client_socket
                     other_sock.sendall(data)
         except Exception as e:
-            logging.error(f"TCP代理错误: {str(e)}")
+            self.logger.error(f"{self.domain} TCP代理错误: {str(e)}")
         finally:
             client_socket.close()
             if target_socket:
@@ -175,7 +183,7 @@ class DynamicProxy:
             except socket.timeout:
                 continue
             except Exception as e:
-                self._handle_udp_exception(e, "客户端监听")
+                self.logger.error(f"{self.domain} UDP客户端监听错误: {str(e)}")
 
     def udp_target_listener(self) -> None:
         while self.running:
@@ -195,17 +203,7 @@ class DynamicProxy:
             except socket.timeout:
                 continue
             except Exception as e:
-                self._handle_udp_exception(e, "目标监听")
-
-    def _handle_udp_exception(self, e: Exception, context: str) -> None:
-        if self.is_windows:
-            error_code = str(e).split('[')[-1].split(']')[0] if '[' in str(e) else ''
-            if error_code in ["10022", "10038", "10054"]:
-                logging.warning(f"Windows UDP{context}错误 {error_code}: 重建socket...")
-                self._recreate_udp_socket()
-                return
-        logging.error(f"UDP{context}错误: {str(e)}")
-        time.sleep(1)
+                self.logger.error(f"{self.domain} UDP目标监听错误: {str(e)}")
 
     def _find_recent_client(self) -> Optional[SocketAddress]:
         current_time = time.time()
@@ -216,16 +214,9 @@ class DynamicProxy:
 
     def udp_proxy_handler(self) -> None:
         self.udp_target_socket = self.create_udp_socket()
-        client_thread = threading.Thread(target=self.udp_client_listener, daemon=True)
-        target_thread = threading.Thread(target=self.udp_target_listener, daemon=True)
-        client_thread.start()
-        target_thread.start()
+        threading.Thread(target=self.udp_client_listener, daemon=True).start()
+        threading.Thread(target=self.udp_target_listener, daemon=True).start()
         self._cleanup_expired_clients()
-        if self.udp_target_socket:
-            try:
-                self.udp_target_socket.close()
-            except:
-                pass
 
     def _cleanup_expired_clients(self) -> None:
         while self.running:
@@ -243,13 +234,13 @@ class DynamicProxy:
             if self.is_windows and self.protocol == 'udp':
                 self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             self.server_socket.bind(('0.0.0.0', self.local_port))
-            logging.info(f"{self.protocol.upper()}代理已启动，监听本地端口 {self.local_port}")
+            self.logger.info(f"{self.domain} {self.protocol.upper()}代理已启动，监听端口 {self.local_port}")
             if self.protocol == 'tcp':
                 self._start_tcp_server()
             else:
                 self.udp_proxy_handler()
         except Exception as e:
-            logging.error(f"服务器启动错误: {str(e)}")
+            self.logger.error(f"{self.domain} 服务器启动错误: {str(e)}")
             self.running = False
 
     def _start_tcp_server(self) -> None:
@@ -271,14 +262,13 @@ class DynamicProxy:
     def start(self) -> None:
         self.running = True
         self.check_update(is_initial_check=True)
-        server_thread = threading.Thread(target=self.start_server, daemon=True)
-        server_thread.start()
+        threading.Thread(target=self.start_server, daemon=True).start()
         try:
             while self.running:
                 time.sleep(self.check_interval)
                 self.check_update()
         except KeyboardInterrupt:
-            logging.info("\n用户中断，程序正在退出...")
+            self.logger.info(f"{self.domain} 用户中断，正在退出...")
         finally:
             self.running = False
             if self.server_socket:
@@ -291,7 +281,6 @@ class DynamicProxy:
                     self.udp_target_socket.close()
                 except:
                     pass
-
 
 def load_config_and_start(config_file: str):
     config = configparser.ConfigParser()
@@ -306,9 +295,13 @@ def load_config_and_start(config_file: str):
         dns_servers = config.get(section, "dns_servers", fallback="")
         dns_servers_list = dns_servers.split() if dns_servers else None
 
+        section_logger = SectionLoggerAdapter(logging.getLogger(__name__), {"section": section})
+
         proxy = DynamicProxy(domain, local_port, protocol, interval,
                              stability_threshold=stability,
-                             dns_servers=dns_servers_list)
+                             dns_servers=dns_servers_list,
+                             logger=section_logger,
+                             section=section)
         proxies.append(proxy)
         threading.Thread(target=proxy.start, daemon=True).start()
 
@@ -321,9 +314,8 @@ def load_config_and_start(config_file: str):
             p.running = False
         time.sleep(1)
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='稳定版动态域名代理程序')
+    parser = argparse.ArgumentParser(description='dns-txt-proxy 稳定版动态域名代理程序')
     parser.add_argument('--domain', help='要解析的域名')
     parser.add_argument('--local-port', type=int, help='本地监听端口')
     parser.add_argument('--protocol', choices=['tcp', 'udp'], default='tcp', help='代理协议')
@@ -331,7 +323,18 @@ if __name__ == "__main__":
     parser.add_argument('--stability', type=int, default=3, help='地址稳定判断次数（默认3次）')
     parser.add_argument('--dns-servers', nargs='*', help='DNS服务器IP列表')
     parser.add_argument('--config', help='配置文件路径（未指定domain时使用）', default="config.conf")
+    parser.add_argument('--log-file', help='日志文件路径（可选）')
+
     args = parser.parse_args()
+
+    log_path = get_log_path(args.log_file)
+    log_handlers = [logging.StreamHandler(), logging.FileHandler(log_path, encoding="utf-8")]
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(asctime)s] %(levelname)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=log_handlers
+    )
 
     if args.domain and args.local_port:
         proxy = DynamicProxy(
