@@ -71,6 +71,26 @@ python dns-txt-proxy.py --config /path/to/config.conf
 
 ---
 
+### 3. docker方式启动（可多实例方式）
+启动：
+```bash
+docker-compose -f docker-compose.dns-txt-proxy.yml up -d
+```
+
+配置文件示例：
+同上
+
+查看日志：
+```bash
+docker logs -f dns-txt-proxy
+```
+或指定配置文件路径：
+```bash
+python dns-txt-proxy.py --config /path/to/config.conf
+```
+
+---
+
 ## 📄 TXT 记录格式
 TXT 记录内容必须为：
 ```
