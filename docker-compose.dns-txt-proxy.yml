@@ -14,3 +14,8 @@ services:
     environment:
       - TZ=Asia/Shanghai
     network_mode: "host"
+
+# windows上的host模式网络不通，使用以下端口映射，根据情况手动配置
+#    ports:
+#      - 8888:8888/udp
+#      - 5000:5000
