@@ -84,10 +84,7 @@ docker-compose -f docker-compose.dns-txt-proxy.yml up -d
 ```bash
 docker logs -f dns-txt-proxy
 ```
-或指定配置文件路径：
-```bash
-python dns-txt-proxy.py --config /path/to/config.conf
-```
+
 
 ---
 
