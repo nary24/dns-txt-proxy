@@ -133,4 +133,8 @@ Ctrl + C
 - 同上也可代理web服务
 - 修改一下脚本，用于openwrt中连接wireguard服务端等
 - pip安装pyinstaller，可把py脚本打包成exe可执行文件 
+```  
+  pip install pyinstaller
+  pyinstaller --onefile dns-txt-proxy.py
+```
  （注意： windows是以前台窗口方式运行，关闭就断连，最好用docker启动）
