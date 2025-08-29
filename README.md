@@ -108,6 +108,9 @@ IP:端口
      然后再用lucky的动态域名，把域名解析TXT记录
 - 2、对于有动态公网IP，直接使用lucky的域名解析，记录TXT记录 IP:端口
 - 3、 (可选参考) lucky的stun穿透办法 ：https://lucky666.cn/docs/modules/stun
+- 4、安装好lucky，比如这样获取公网ip并解析至dns上
+![图片描述](images/lucky-stun规则.jpg)
+![图片描述](images/lucky动态域名获取stun的ip端口.jpg)
 ---
 
 ## ⏱ 切换延迟说明
