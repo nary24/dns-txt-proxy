@@ -137,7 +137,7 @@ Ctrl + C
 
 
 ## ⌨️ 使用场景
-- 无公网时，使用lucky的stun内网穿透、动态域名 代理wireguard服务端，再用此程序 实现在windows上固定端口连接wireguard服务端
+- 运营商不给公网IPV4时，使用lucky的stun内网穿透、动态域名 代理wireguard服务端，再用此程序 实现在windows上固定端口连接wireguard服务端
 - 同上也可代理web服务
 - 修改一下脚本，用于openwrt中连接wireguard服务端等
 - pip安装pyinstaller，可把py脚本打包成exe可执行文件 
