@@ -1,16 +1,16 @@
 version: '3'
 services:
   dns-txt-proxy:
-    #构建
-    build:
-      context: .
-      dockerfile: Dockerfile
+#    #动手能力强的，手动通过Dockerfile构建镜像
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
     #或用其他方式构建后的现在镜像
-    #image: dns-txt-proxy:latest
+    image: nary24/dns-txt-proxy:latest
     container_name: dns-txt-proxy
     restart: always
     volumes:
-      - $PWD/config.conf:/app/config.conf
+      - $PWD/config.conf:/app/config.conf      #修改$PWD/config.conf路径为你的实例配置文件路径 比如：/home/dns-txt-proxy/config.conf
     environment:
       - TZ=Asia/Shanghai
     network_mode: "host"
