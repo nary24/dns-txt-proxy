@@ -7,8 +7,8 @@ RUN pip config set global.index-url http://mirrors.aliyun.com/pypi/simple/
 RUN pip config set global.trusted-host mirrors.aliyun.com
 
 #安装pipreqs,解决依赖,生成requirements.txt
-RUN pip install pipreqs
-RUN pipreqs /app --force
+#RUN pip install pipreqs
+#RUN pipreqs /app --force
 #安装依赖
 RUN pip install -r /app/requirements.txt
 
