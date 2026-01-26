@@ -30,9 +30,9 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 | `--dns-servers` | 自定义 DNS 服务器（空格分隔多个） | Google DNS |
 | `--log-file` | 指定生成日志文件到此位置 | 非必填 |
 
-如何使用：
+<font color="red">如何访问服务：
   直接本地访问localhost:9000 ，则可访问到 example.com记录的ip:端口所代理的服务
-
+</font>
 ---
 
 ### 2. 配置文件多实例模式
