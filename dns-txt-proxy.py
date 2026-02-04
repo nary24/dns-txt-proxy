@@ -57,6 +57,20 @@ class DynamicProxy:
                  dns_servers: Optional[List[str]] = None,
                  logger: Optional[logging.Logger] = None,
                  section: str = "main"):
+        """
+        初始化 DynamicProxy 实例
+
+        :param domain: 要解析的域名
+        :param local_port: 本地监听端口
+        :param protocol: 代理协议 ('tcp' 或 'udp')
+        :param check_interval: TXT记录定期检查间隔（秒）
+        :param udp_buffer_size: UDP缓冲区大小
+        :param dns_timeout: DNS解析超时时间（秒）
+        :param stability_threshold: 地址稳定判断次数
+        :param dns_servers: DNS服务器IP列表
+        :param logger: 日志记录器
+        :param section: 配置节名称
+        """
         self.domain = domain
         self.local_port = local_port
         self.protocol = protocol.lower()
@@ -90,6 +104,11 @@ class DynamicProxy:
             pass
 
     def resolve_txt(self) -> Optional[SocketAddress]:
+        """
+        解析域名的TXT记录，提取目标IP和端口
+
+        :return: 解析成功返回 (IP, 端口) 元组，失败返回 None
+        """
         try:
             answers = self.resolver.resolve(self.domain, 'TXT', lifetime=self.dns_timeout)
             for ans in answers:
@@ -111,6 +130,11 @@ class DynamicProxy:
             return None
 
     def check_update(self, is_initial_check: bool = False) -> None:
+        """
+        检查并更新目标地址
+
+        :param is_initial_check: 是否为初始检查
+        """
         if is_initial_check:
             self.logger.info(f"启动时检查 {self.domain} TXT记录...")
         new_target = self.resolve_txt()
@@ -130,6 +154,11 @@ class DynamicProxy:
             self.recent_resolutions.clear()
 
     def _update_target_if_needed(self, new_target: SocketAddress, is_initial_check: bool = False) -> None:
+        """
+        检查并更新目标地址
+
+        :param is_initial_check: 是否为初始检查
+        """
         if new_target != self.target:
             old_target = self.target
             self.target = new_target
@@ -140,6 +169,7 @@ class DynamicProxy:
             self._recreate_udp_socket()
 
     def _recreate_udp_socket(self) -> None:
+        """重新创建UDP目标套接字"""
         if self.udp_target_socket and self.protocol == 'udp':
             try:
                 self.udp_target_socket.close()
@@ -150,6 +180,11 @@ class DynamicProxy:
             self.logger.info("已重建UDP目标socket")
 
     def create_udp_socket(self) -> socket.socket:
+        """
+        创建UDP套接字
+
+        :return: 创建的UDP套接字
+        """
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         if self.is_windows:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -162,6 +197,11 @@ class DynamicProxy:
         return sock
 
     def tcp_proxy_handler(self, client_socket: socket.socket) -> None:
+        """
+        处理TCP代理连接
+
+        :param client_socket: 客户端套接字
+        """
         if not self.target:
             client_socket.close()
             return
@@ -188,6 +228,7 @@ class DynamicProxy:
                 target_socket.close()
 
     def udp_client_listener(self) -> None:
+        """监听UDP客户端数据包"""
         while self.running:
             if not self.target or not self.udp_target_socket or not self.server_socket:
                 time.sleep(1)
@@ -207,6 +248,7 @@ class DynamicProxy:
                 self.logger.error(f"{self.domain} UDP客户端监听错误: {str(e)}")
 
     def udp_target_listener(self) -> None:
+        """监听UDP客户端数据包"""
         while self.running:
             if not self.target or not self.udp_target_socket or not self.server_socket:
                 time.sleep(1)
@@ -227,6 +269,11 @@ class DynamicProxy:
                 self.logger.error(f"{self.domain} UDP目标监听错误: {str(e)}")
 
     def _find_recent_client(self) -> Optional[SocketAddress]:
+        """
+        查找最近活跃的客户端地址
+
+        :return: 最近活跃的客户端地址，如果没有则返回 None
+        """
         current_time = time.time()
         for addr, last_active in self.client_map.items():
             if current_time - last_active < 30:
@@ -234,12 +281,18 @@ class DynamicProxy:
         return None
 
     def udp_proxy_handler(self) -> None:
+        """
+        查找最近活跃的客户端地址
+
+        :return: 最近活跃的客户端地址，如果没有则返回 None
+        """
         self.udp_target_socket = self.create_udp_socket()
         threading.Thread(target=self.udp_client_listener, daemon=True).start()
         threading.Thread(target=self.udp_target_listener, daemon=True).start()
         self._cleanup_expired_clients()
 
     def _cleanup_expired_clients(self) -> None:
+        """清理过期的客户端记录"""
         while self.running:
             current_time = time.time()
             for addr in list(self.client_map.keys()):
@@ -248,6 +301,7 @@ class DynamicProxy:
             time.sleep(5)
 
     def start_server(self) -> None:
+        """启动服务"""
         try:
             socket_type = socket.SOCK_STREAM if self.protocol == 'tcp' else socket.SOCK_DGRAM
             self.server_socket = socket.socket(socket.AF_INET, socket_type)
@@ -265,6 +319,7 @@ class DynamicProxy:
             self.running = False
 
     def _start_tcp_server(self) -> None:
+        """启动TCP服务器"""
         if not self.server_socket:
             return
         self.server_socket.listen(5)
@@ -281,6 +336,7 @@ class DynamicProxy:
                 continue
 
     def start(self) -> None:
+        """启动TCP服务器"""
         self.running = True
         self.check_update(is_initial_check=True)
         threading.Thread(target=self.start_server, daemon=True).start()
@@ -305,6 +361,11 @@ class DynamicProxy:
 
 
 def load_config_and_start(config_file: str):
+    """
+    加载配置文件并启动代理服务
+
+    :param config_file: 配置文件路径
+    """
     config = configparser.ConfigParser()
     config.read(config_file, encoding="utf-8")
 
@@ -346,6 +407,7 @@ def load_config_and_start(config_file: str):
         time.sleep(1)
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description='dns-txt-proxy 稳定版动态域名代理程序')
     parser.add_argument('--domain', help='要解析的域名')
     parser.add_argument('--local-port', type=int, help='本地监听端口')
