@@ -51,7 +51,7 @@ local_port = 9001
 protocol = tcp
 interval = 10
 stability = 3
-dns_servers = 8.8.8.8 8.8.4.4
+dns_servers = 223.5.5.5 223.6.6.6
 
 [proxy2]
 domain = txt2.example.com
@@ -59,7 +59,7 @@ local_port = 9002
 protocol = udp
 interval = 5
 stability = 2
-dns_servers = 1.1.1.1 1.0.0.1
+dns_servers = 223.5.5.5 223.6.6.6
 ```
 启动：
 ```bash
