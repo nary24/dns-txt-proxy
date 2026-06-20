@@ -98,6 +98,8 @@ docker logs -f dns-txt-proxy
 支持图形化管理：添加/编辑/删除端口映射、启动/停止代理、实时查看日志。
 可右键托盘图标设置「开机自启」。
 
+![图形客户端](images/图形客户端.png)
+
 打包命令（需 Python + PyInstaller）：
 ```bash
 python windows\build_exe.py
