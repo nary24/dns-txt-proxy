@@ -1,0 +1,17 @@
+[global]
+
+[example_wireguard]
+domain = your-domain.example.com
+local_port = 8889
+protocol = udp
+interval = 10
+stability = 2
+dns_servers = 223.5.5.5 223.6.6.6
+
+[example-other]
+domain = your-domain.example.com
+local_port = 8888
+protocol = udp
+interval = 60
+stability = 3
+dns_servers = 223.5.5.5

@@ -39,7 +39,10 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 ### 2. 配置文件多实例模式
 如果不传 `--domain` 参数，则自动读取配置文件（默认 `config.conf`），可同时启动多个代理实例。
 
-配置文件示例：
+> `config.conf` 已加入 `.gitignore`，不会提交到仓库。
+> 首次使用可复制 `config.conf.example` 为 `config.conf` 并修改其中的域名。
+
+配置文件示例（详见 `config.conf.example`）：
 ```ini
 [global]
 # 日志文件路径（可选，留空则只输出到终端）
@@ -141,9 +144,14 @@ Ctrl + C
 - 运营商不给公网IPV4时，使用lucky的stun内网穿透、动态域名 代理wireguard服务端，再用此程序 实现在windows上固定端口连接wireguard服务端
 - 同上也可代理web服务
 - 修改一下脚本，用于openwrt中连接wireguard服务端等
-- pip安装pyinstaller，可把py脚本打包成exe可执行文件 
-```  
+- Windows 下推荐使用图形界面管理工具（系统托盘后台运行，支持开机自启）：
+  ```bash
+  windows\build_exe.py                    # 打包成单 exe
+  dist\DNS-TXT-Proxy-Manager.exe          # 运行 GUI 管理器
+  ```
+  也可继续使用命令行模式打包成独立 exe：
+  ```bash
   pip install pyinstaller
   pyinstaller --onefile dns-txt-proxy.py
-```
- （注意： windows是以前台窗口方式运行，关闭就断连，最好用docker启动）
+  ```
+  （图形界面运行在系统托盘，关闭窗口不退出；命令行模式关闭窗口即断开）
