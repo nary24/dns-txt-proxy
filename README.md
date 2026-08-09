@@ -1,19 +1,86 @@
-# 动态域名端口代理程序 (dns-txt-proxy.py)
+# 动态域名端口代理程序 (dns-txt-proxy)
 
-## 📌 简介
-`dns-txt-proxy.py` 是一个 **动态端口代理程序**，可通过解析 **DNS TXT 记录** 获取目标服务器的 **动态IP:动态端口** 并自动更新，实现 TCP/UDP 端口转发, 变向实现固定IP:端口的目的。
-- 用于没有固定公网IPV4的环境，也可用于没有公网IP但可通过lucky内网穿透的公网IP
+## 📌 这是什么？解决什么问题？
+
+你是否遇到过这种情况：家里的服务（比如 WireGuard、Web 服务）没有固定公网 IP，借助 **Lucky 的 STUN 内网穿透** 确实能从外面访问了，但穿透得到的公网 `IP:端口` 是**随时变化的**，无法固定，外部访问很不方便。
+
+`dns-txt-proxy` 就是来解决这个问题的：**它把"会变的公网 IP:端口"变成"本地固定的端口"**，让你可以从任意地方用一个固定端口去访问家中服务。
+
+- 适用于没有固定公网 IPV4 的环境，也适用于没有公网 IP 但可通过 Lucky STUN 内网穿透拿到公网端口的环境
 - 支持 **多实例配置文件模式** 和 **命令行单实例模式**
-- 支持 DNS 记录变化自动切换目标
-- 适合用于 NAT 穿透、动态端口代理等场景 ，如wireguard连接服务端的端口变向固定
+- 支持 DNS TXT 记录变化后**自动切换目标**，无需人工干预
+- 适合 NAT 穿透、动态端口代理等场景，如 WireGuard / OpenVPN 客户端"变向固定"服务端的 IP 与端口
+- 注意：这是一个**客户端软件**，请部署在【需要异地访问服务的那一侧】
+
 ---
 
-## 🚀 使用方式
+## 🧭 原理与链路图
+
+```
+家中/内网服务（如 WireGuard :51820）
+     │ ① Lucky STUN 内网穿透
+     ▼
+获得公网 IP:端口（会变化，如 1.2.3.4:52301）
+     │ ② Lucky 动态域名(DDNS) 写入 TXT 记录
+     ▼
+DNS TXT 记录  wy.example.com = 1.2.3.4:52301
+     │ ③ 本工具定期解析 TXT 记录
+     ▼
+异地客户端（本工具）监听固定端口 localhost:9000
+     │ ④ 透明转发
+     ▼
+访问者连接 localhost:9000 = 连接家中服务
+```
+
+上图中：
+
+- **① ② 在"服务端"完成**：由 Lucky 的 STUN 内网穿透获取公网 `IP:端口`，再由 Lucky 动态域名(DDNS) 自动更新到 DNS TXT 记录。
+- **③ ④ 是本工具（dns-txt-proxy）在"访问侧"完成**：定期解析 TXT 记录拿到最新的 `IP:端口`，在本地监听固定端口并把流量转发过去。
+
+---
+
+## 🏷️ 服务端 / 客户端 角色说明
+
+| 端 | 部署位置 | 使用软件 | 职责 |
+|----|----------|----------|------|
+| 服务端 | 提供服务的一侧（家中/内网） | Lucky | STUN 内网穿透 + 动态域名更新 TXT 记录 |
+| 客户端 | 需要访问服务的一侧（异地） | **dns-txt-proxy** | 解析 TXT 记录并固定本地端口转发 |
+
+> 简单说：Lucky 是"把服务暴露出去并在 DNS 上登记当前 IP:端口"的那一端；dns-txt-proxy 是"读取最新 IP:端口并以固定入口访问"的那一端。
+
+---
+
+## 🧭 前置准备：让 Lucky 把 IP:端口 解析到 TXT
+
+> 使用本工具前，请先确保某个域名已存在内容为 `IP:端口` 的 **DNS TXT 记录**（否则本工具无目标可转发）。
+
+DNS TXT 记录内容必须为：
+```
+IP:端口
+```
+例如：
+```
+203.0.113.10:5000
+```
+
+这个 TXT 记录一般由 **Lucky 动态域名(DDNS) 任务自动写入**：
+
+- 1、对于没有公网 IP 的环境：先用 Lucky 的 **STUN 内网穿透** 获取到对应服务的公网 `IP:端口`，再用 Lucky 动态域名把该 `IP:端口` 解析到 DNS TXT 记录
+- 2、对于有动态公网 IP 的环境：直接用 Lucky 的动态域名把 `IP:端口` 写入 TXT 记录  （当然，本身有公网IP的话 也不会用此工具了）
+
+![图片描述](images/lucky-stun规则.jpg)
+![图片描述](images/lucky动态域名获取stun的ip端口.jpg)
+
+> Lucky的具体使用方法，请参考 Lucky官方 的 STUN 穿透文档：https://lucky666.cn/docs/modules/stun
+
+---
+
+## 🚀 快速开始
 
 ### 1. 命令行单实例模式
 python版本：3
 
-安装依赖： pip install -r requirements.txt
+安装依赖： `pip install -r requirements.txt`
 
 直接指定域名和本地监听端口：
 ```bash
@@ -22,7 +89,7 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 参数说明：
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--domain` | 要解析的域名（TXT 记录应为 `IP:端口` 格式） | 必填 |
+| `--domain` | 要解析的域名（该域名需存在 `IP:端口` 格式的 TXT 记录，参见"前置准备"） | 必填 |
 | `--local-port` | 本地监听端口 | 必填 |
 | `--protocol` | 协议类型（`tcp` 或 `udp`） | `tcp` |
 | `--interval` | 检查 TXT 记录的间隔（秒） | `10` |
@@ -38,7 +105,10 @@ python dns-txt-proxy.py --domain example.com --local-port 9000 --protocol tcp --
 ### 2. 配置文件多实例模式
 如果不传 `--domain` 参数，则自动读取配置文件（默认 `config.conf`），可同时启动多个代理实例。
 
-配置文件示例：
+> `config.conf` 已加入 `.gitignore`，不会提交到仓库。
+> 首次使用可复制 `config.conf.example` 为 `config.conf` 并修改其中的域名。
+
+配置文件示例（详见 `config.conf.example`）：
 ```ini
 [global]
 # 日志文件路径（可选，留空则只输出到终端）
@@ -50,7 +120,7 @@ local_port = 9001
 protocol = tcp
 interval = 10
 stability = 3
-dns_servers = 8.8.8.8 8.8.4.4
+dns_servers = 223.5.5.5 223.6.6.6
 
 [proxy2]
 domain = txt2.example.com
@@ -58,7 +128,7 @@ local_port = 9002
 protocol = udp
 interval = 5
 stability = 2
-dns_servers = 1.1.1.1 1.0.0.1
+dns_servers = 223.5.5.5 223.6.6.6
 ```
 启动：
 ```bash
@@ -71,50 +141,51 @@ python dns-txt-proxy.py --config /path/to/config.conf
 
 ---
 
-### 3. docker方式启动（可多实例方式）
+### 3. docker 方式启动（可多实例方式）
 启动：
 ```bash
 docker-compose -f docker-compose.dns-txt-proxy.yml up -d
 ```
 
-配置文件示例：
-同上
+配置文件示例：同上
 
 查看日志：
 ```bash
 docker logs -f dns-txt-proxy
 ```
 
+---
+
+### 4. Windows 图形界面模式
+下载 `DNS-TXT-Proxy-Manager.exe` 直接运行（无需 Python 环境），即系统托盘后台运行。
+支持图形化管理：添加/编辑/删除端口映射、启动/停止代理、实时查看日志。
+可右键托盘图标设置「开机自启」。
+
+![图形客户端](images/图形客户端.png)
+
+打包命令（需 Python + PyInstaller）：
+```bash
+python windows\build_exe.py
+```
 
 ---
 
-
-### 4. 其他的方式启动
+### 5. 将脚本注册为系统服务
 [各环境把脚本注册为系统服务](各环境把脚本注册为系统服务.md)
 
+---
 
-## 📄 TXT 记录格式
-TXT 记录内容必须为：
+### ⌨️ 停止程序
+在运行窗口按：
 ```
-IP:端口
+Ctrl + C
 ```
-例如：
-```
-203.0.113.10:5000
-```
-注：
-#### 
-- 1、对于没有公网IP的环境，可使用lucky的stun内网穿透服务，获取到对应服务的公网IP：端口,
-     然后再用lucky的动态域名，把域名解析TXT记录
-- 2、对于有动态公网IP，直接使用lucky的域名解析，记录TXT记录 IP:端口
-- 3、 (可选参考) lucky的stun穿透办法 ：https://lucky666.cn/docs/modules/stun
-- 4、安装好lucky，比如这样获取公网ip并解析至dns上
-![图片描述](images/lucky-stun规则.jpg)
-![图片描述](images/lucky动态域名获取stun的ip端口.jpg)
+即可停止所有代理实例。
+
 ---
 
 ## ⏱ 切换延迟说明
-切换到新 IP:端口的时间取决于：
+切换到新 `IP:端口` 的时间取决于：
 ```
 延迟 ≈ DNS TTL + interval × stability
 ```
@@ -128,21 +199,14 @@ IP:端口
 
 ---
 
-## ⌨️ 停止程序
-在运行窗口按：
-```
-Ctrl + C
-```
-即可停止所有代理实例。
+## 🖥 使用场景
+- 运营商不给公网IPV4时：用 Lucky 的 STUN 内网穿透 + 动态域名代理 WireGuard 服务端，再用本程序在 Windows 上以固定端口连接 WireGuard 服务端
+- 同上也可代理 Web 服务
+- 修改一下脚本，可部署在 OpenWrt 中连接 WireGuard 服务端等
 
+---
 
-## ⌨️ 使用场景
-- 运营商不给公网IPV4时，使用lucky的stun内网穿透、动态域名 代理wireguard服务端，再用此程序 实现在windows上固定端口连接wireguard服务端
-- 同上也可代理web服务
-- 修改一下脚本，用于openwrt中连接wireguard服务端等
-- pip安装pyinstaller，可把py脚本打包成exe可执行文件 
-```  
-  pip install pyinstaller
-  pyinstaller --onefile dns-txt-proxy.py
-```
- （注意： windows是以前台窗口方式运行，关闭就断连，最好用docker启动）
+## 📚 参考文档
+- Lucky STUN 内网穿透官方文档：https://lucky666.cn/docs/modules/stun
+- Lucky 动态域名(DDNS)官方文档：https://lucky666.cn/docs/modules/ddns
+- 网友教程 / 经验分享（含 STUN 内网穿透部分教程）：https://lucky666.cn/docs/shareteach/
